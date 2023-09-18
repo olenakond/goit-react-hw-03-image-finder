@@ -1,12 +1,13 @@
 import { Item, Image } from './ImageGalleryItem.styled';
 
 const ImageGalleryItem = ({ imageInfo, handleImgClick }) => {
+  const { webformatURL, largeImageURL, tags } = imageInfo;
   return (
     <Item>
       <Image
-        onClick={() => handleImgClick(imageInfo.id)}
-        src={imageInfo.webformatURL}
-        alt={imageInfo.tags}
+        onClick={() => handleImgClick({ tags, largeImageURL })}
+        src={webformatURL}
+        alt={tags}
       />
     </Item>
   );

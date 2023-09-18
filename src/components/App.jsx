@@ -1,5 +1,4 @@
 import { Component } from 'react';
-
 import { getImagesBySearch } from '../api/images';
 import Searchbar from './Searchbar';
 import ImageGallery from './ImageGallery';
@@ -11,67 +10,41 @@ class App extends Component {
   state = {
     searchQuery: '',
     images: [],
-    isModalOpen: false,
-    imageModal: {},
+    imageModal: null,
     error: '',
     isLoading: false,
+    page: 1,
+    totalHits: 0,
   };
 
-  page = 1;
-  totalHits = 1;
-
   componentDidUpdate(_, prevState) {
-    if (prevState.searchQuery !== this.state.searchQuery) {
+    const { searchQuery, page } = this.state;
+    if (prevState.searchQuery !== searchQuery || prevState.page !== page) {
       this.fetchImages();
     }
   }
 
-  toogleModal = () => {
-    this.setState({ isModalOpen: !this.state.isModalOpen });
-  };
-
   fetchImages = async () => {
-    try {
-      this.setState({ isLoading: true, images: [] });
-      this.page = 1;
-      const data = await getImagesBySearch(this.state.searchQuery, this.page);
-      const dataForState = data.hits.map(hit => {
-        const newImageObject = {
-          id: hit.id,
-          webformatURL: hit.webformatURL,
-          largeImageURL: hit.largeImageURL,
-          tags: hit.tags,
-        };
-        return newImageObject;
-      });
-      this.setState({ images: dataForState });
-      this.totalHits = data.totalHits;
-    } catch (error) {
-      this.setState({ error: error.message });
-    } finally {
-      this.setState({ isLoading: false });
-    }
-  };
-
-  fetchMoreImages = async () => {
+    const { searchQuery, page } = this.state;
     try {
       this.setState({ isLoading: true });
-      this.page += 1;
-      const moreData = await getImagesBySearch(
-        this.state.searchQuery,
-        this.page
+
+      const data = await getImagesBySearch(searchQuery, page);
+
+      if (data.totalHits === 0) {
+        alert('There are no images matching your request.');
+        return;
+      }
+
+      const dataForState = data.hits.map(
+        ({ id, webformatURL, largeImageURL, tags }) => {
+          return { id, webformatURL, largeImageURL, tags };
+        }
       );
-      const moreDataForState = moreData.hits.map(hit => {
-        const newImageObject = {
-          id: hit.id,
-          webformatURL: hit.webformatURL,
-          largeImageURL: hit.largeImageURL,
-          tags: hit.tags,
-        };
-        return newImageObject;
-      });
+
       this.setState(prevState => ({
-        images: [...prevState.images, ...moreDataForState],
+        images: [...prevState.images, ...dataForState],
+        totalHits: data.totalHits,
       }));
     } catch (error) {
       this.setState({ error: error.message });
@@ -80,38 +53,42 @@ class App extends Component {
     }
   };
 
-  handleSubmit = event => {
-    event.preventDefault();
-    this.setState({ searchQuery: event.target.elements.name.value.trim() });
+  fetchMoreImages = () => {
+    this.setState(prevState => ({
+      page: prevState.page + 1,
+    }));
   };
 
-  handleImgClick = id => {
-    const imageObj = this.state.images.find(image => image.id === id);
+  handleSubmit = event => {
+    event.preventDefault();
     this.setState({
-      imageModal: imageObj,
+      searchQuery: event.target.elements.name.value.trim(),
+      page: 1,
+      images: [],
+      totalHits: 0,
     });
-    this.toogleModal();
+  };
+
+  toogleModal = (imageModal = null) => {
+    this.setState({ imageModal });
   };
 
   render() {
-    const { error, isLoading, images, isModalOpen, imageModal } = this.state;
+    const { error, isLoading, images, imageModal, totalHits } = this.state;
 
     return (
       <>
         <Searchbar onSubmit={this.handleSubmit} />
         <ImageGallery
           images={this.state.images}
-          handleImgClick={this.handleImgClick}
+          handleImgClick={this.toogleModal}
         />
-        {this.totalHits === 0 && (
-          <p>There are no images matching your request.</p>
-        )}
         {error && <p>{this.state.error}</p>}
         {isLoading && <Loader />}
-        {images.length > 0 && this.page * 12 < this.totalHits && (
+        {images.length !== totalHits && !isLoading && (
           <Button handleLoadMore={this.fetchMoreImages} />
         )}
-        {isModalOpen && (
+        {imageModal && (
           <Modal image={imageModal} toogleModal={this.toogleModal} />
         )}
       </>
